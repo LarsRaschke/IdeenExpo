@@ -18,6 +18,7 @@ from omxplayer import OMXPlayer
 
 #Globale Variablen
 mode = 0 #savemode
+videoStart = True
 
 #GPIO set und reset
 GPIO.setmode(GPIO.BOARD)
@@ -32,37 +33,43 @@ def setInterrupt(channel):
     GPIO.add_event_detect(channel, GPIO.RISING, callback=call, bouncetime=500)
 
 def resetInterrupt(channel):
-    GPIO.remove_event_detect(channel, GPIO.RISING, callback=call, bouncetime=500)
+    GPIO.remove_event_detect(channel)
     GPIO.add_event_detect(channel, GPIO.RISING, callback=call, bouncetime=500)
 
 def removeInterrupt(channel):
-    GPIO.remove_event_detect(channel, GPIO.RISING, callback=call, bouncetime=500)
+    GPIO.remove_event_detect(channel)
 
 #View Class
 class View(QtGui.QMainWindow, gui.Ui_Form):
 
     # Signals
-    game = pyqtSignal()#notwendig?
+    game = pyqtSignal()
 
     def __init__(self):
         super(self.__class__, self).__init__()
 
         self.setupUi(self)
 
+        self.player = OMXPlayer('/home/pi/Public/Videos/teil3Neu.mp4')
+        self.player.pause()
+        self.player.set_video_pos(480, 300, 1920, 1080)
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.run)
-        self.timer.start(1) # Bei Autostart wirklich 1 ms da kein System im hintergrund ist
+        self.timer.start(1)#Bei Autostart wirklich 1 ms da kein System im hintergrund ist
 
     #Slot
     @pyqtSlot()
     def run(self):
         global mode
+        global videoStart
         if mode is 0:   #Savemode
             """
             Hier werden alle Werte zurück gesetzt
             """
+            videoStart = True
             setInterrupt(13)
-            mode = 1
+            mode = 4
         elif mode is 1: #Startbildschirm
             pass
         elif mode is 2: #Übergang Erklärphase
@@ -71,15 +78,24 @@ class View(QtGui.QMainWindow, gui.Ui_Form):
             mode = 3
         elif mode is 3: #Erklärphase
             pass
-
         elif mode is 4: #Übergang Spielphase
             removeInterrupt(11)
+            removeInterrupt(13)
             mode = 5
         elif mode is 5: #Spielphase
-            if gameTime is 0:
-                # Spielende
-            else:
+            if videoStart:
+                self.player.play()
+                videoStart = False
+            if self.player.is_playing():
                 pass
+                #Spielläuft
+            else:
+                #Spielfertig
+                print "Hallo"
+                mode = 3
+
+        else:
+            pass
 
 #Interrupt
 def call(channel):
@@ -91,6 +107,8 @@ def call(channel):
     elif channel is 13: #Start
         if mode is 1:
             mode = 2
+        elif mode is 3:
+            mode = 4
     else:
         print "Error"
 
